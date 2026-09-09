@@ -1,0 +1,111 @@
+server:
+  port: 3000
+
+spring:
+  application:
+    name: employee-system
+
+  # 数据库配置
+  datasource:
+    url: jdbc:mysql://localhost:3306/employee_db?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: root
+    password: 123456
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      idle-timeout: 30000
+      connection-timeout: 30000
+
+  # Redis配置
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 10000
+
+  # 文件上传配置
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+# MyBatis-Plus配置
+mybatis-plus:
+  mapper-locations: classpath:mapper/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: auto
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+# JWT配置
+jwt:
+  secret: your_super_secret_key_here_please_change_me_2026
+  access-token-expiration: 900000 # 15分钟（毫秒）
+  refresh-token-expiration: 604800000 # 7天（毫秒）
+
+# AES加密密钥（恰好32字符）
+aes:
+  key: your_32_char_encryption_key!!
+
+# 本地文件存储配置（测试环境）
+file:
+  storage:
+    # 本地存储根路径（Windows 使用反斜杠或正斜杠）
+    path: F:/TESTFOLDER
+    # 允许的文件类型（多个用逗号分隔）
+    allowed-types: jpg,jpeg,png,gif,pdf,doc,docx,xls,xlsx,zip,rar
+    # 单文件最大大小
+    max-size: 50MB
+
+# IP白名单（企业内网限制，多个用逗号分隔；留空=不限制）
+ip:
+  whitelist:
+
+# Resilience4j 限流配置
+resilience4j:
+  ratelimiter:
+    instances:
+      api-limiter:
+        limit-for-period: 100 # 每个周期允许的请求数
+        limit-refresh-period: 1s # 刷新周期
+        timeout-duration: 0 # 等待许可的超时时间
+        register-health-indicator: true
+
+      login-limiter:
+        limit-for-period: 5 # 登录接口更严格
+        limit-refresh-period: 1m
+        timeout-duration: 0
+
+# Jasypt 配置加密
+jasypt:
+  encryptor:
+    password: ${JASYPT_PASSWORD:my-secret-key} # 从环境变量读取
+    algorithm: PBEWithMD5AndDES
+    iv-generator-classname: org.jasypt.iv.NoIvGenerator
+
+# 线程池配置（可在代码中通过 @Value 读取）
+thread-pool:
+  async:
+    core-size: 8
+    max-size: 16
+    queue-capacity: 100
+  file:
+    core-size: 10
+    max-size: 50
+    queue-capacity: 200
+  notify:
+    core-size: 5
+    max-size: 20
+    queue-capacity: 500
+
+# 日志配置
+logging:
+  level:
+    com.employee: debug
+    org.springframework.security: info

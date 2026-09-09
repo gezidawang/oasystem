@@ -1,0 +1,40 @@
+target/
+*.class
+*.jar
+*.war
+
+# IDE 配置
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+.settings/
+.project
+.classpath
+
+# Maven
+.mvn/
+mvnw
+mvnw.cmd
+
+# 日志
+logs/
+*.log
+
+# 上传的文件（本地存储）
+uploads/
+
+# 环境配置（包含敏感信息）
+application-prod.yml
+.env
+.env.local
+
+# 操作系统
+.DS_Store
+Thumbs.db
+
+# 临时文件
+*.tmp
+*.swp
+*~
