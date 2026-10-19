@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 预留 XML 映射文件；Phase 1 登录查询使用注解(@Select)，此处为空骨架 -->
+<mapper namespace="com.employee.mapper.UserMapper">
+</mapper>
