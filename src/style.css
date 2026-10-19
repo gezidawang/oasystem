@@ -1,0 +1,50 @@
+/* ===== 全局主题：白 + 淡蓝 企业简约风 ===== */
+:root {
+  /* 主色淡蓝 */
+  --el-color-primary: #2b6cb0;
+  --el-color-primary-light-3: #5b8fc9;
+  --el-color-primary-light-5: #8bb0da;
+  --el-color-primary-light-7: #bcd4ea;
+  --el-color-primary-light-8: #d3e2f2;
+  --el-color-primary-light-9: #eaf3fc;
+  --el-color-primary-dark-2: #245a94;
+
+  --oa-bg: #f5f9ff;
+  --oa-border: #e6eef7;
+  --oa-text: #1f2d3d;
+  --oa-text-muted: #6b7a90;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: "Helvetica Neue", Helvetica, "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+  color: var(--oa-text);
+  background: var(--oa-bg);
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+/* 选中态菜单淡蓝强调 */
+.el-menu-item.is-active {
+  background: var(--el-color-primary-light-9) !important;
+  border-right: 3px solid var(--el-color-primary);
+}
+
+/* 卡片统一细边框 */
+.el-card {
+  border-radius: 10px;
+}
