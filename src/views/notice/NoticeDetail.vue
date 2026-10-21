@@ -8,7 +8,7 @@
         {{ notice.title }}
       </h1>
       <div class="notice-meta">
-        <span>发布人：{{ notice.publisherName || '—' }}</span>
+        <span>发布人：{{ notice.publisherName || '—' }}{{ notice.type === 'all' && notice.publisherDeptName ? ' / ' + notice.publisherDeptName : '' }}</span>
         <el-divider direction="vertical" />
         <span>{{ formatTime(notice.publishAt) }}</span>
         <el-divider direction="vertical" />
@@ -17,7 +17,7 @@
         </el-tag>
       </div>
       <el-divider />
-      <div class="notice-content" v-html="notice.content"></div>
+      <div class="notice-content" v-html="safeContent"></div>
     </el-card>
 
     <el-empty v-else-if="!loading" description="公告不存在或已删除" />
@@ -25,13 +25,17 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
+import DOMPurify from 'dompurify'
 import { noticeApi } from '@/api/notices'
 
 const route = useRoute()
 const loading = ref(false)
 const notice = ref(null)
+
+// 安全渲染：公告正文为富文本 HTML，v-html 前必须 DOMPurify 消毒（防存储型 XSS）
+const safeContent = computed(() => notice.value ? DOMPurify.sanitize(notice.value.content || '') : '')
 
 onMounted(() => loadDetail())
 

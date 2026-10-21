@@ -9,7 +9,8 @@
             <el-option v-for="d in departments" :key="d.id" :label="d.name" :value="d.id" />
           </el-select>
         </el-form-item>
-        <el-form-item label="姓名">
+        <!-- 姓名搜索：仅对能看他人记录的角色开放；普通员工只能看自己的，搜姓名无意义 -->
+        <el-form-item v-if="showDeptFilter" label="姓名">
           <el-input v-model="query.keyword" placeholder="输入姓名" clearable style="width: 140px" @keyup.enter="search" @clear="search" />
         </el-form-item>
         <el-form-item label="日期">

@@ -6,11 +6,7 @@ export const attendanceApi = {
   // ---- 员工打卡（attendance:check:own）----
   // 打卡页初始数据：{ workDate, serverTime, departmentName, workStartTime, workEndTime, record }
   today: () => request.get('/attendance/today'),
-  // 上班打卡：返回 { checkInTime, status, statusText, late, message }
-  checkIn: () => request.post('/attendance/check-in'),
-  // 下班打卡：返回 { checkOutTime, status, statusText, message }
-  checkOut: () => request.post('/attendance/check-out'),
-  // 统一打卡（推荐）：未打=上班，已上班未下班=下班；返回含 punchType
+  // 统一打卡（唯一入口）：未打=上班，已上班未下班=下班；返回含 punchType
   punch: () => request.post('/attendance/punch'),
 
   // ---- 考勤记录（attendance:read:own / read:dept / read:all）----

@@ -146,6 +146,8 @@ function onCommand(cmd) {
 .oa-hamburger { padding: 4px; }
 .oa-crumb { font-size: 15px; font-weight: 500; color: #303133; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .oa-user-name { display: flex; align-items: center; gap: 8px; cursor: pointer; color: #4b5563; }
+/* 去除浏览器给下拉触发器加的默认聚焦轮廓线（黑色圆角边框） */
+.oa-user :deep(*) { outline: none; }
 .oa-user-meta { display: flex; align-items: center; gap: 6px; }
 .oa-role-tag { color: #2b6cb0; border-color: #cfe3f7; background: #eaf3fc; }
 .oa-main { background: #f5f9ff; padding: 18px; }

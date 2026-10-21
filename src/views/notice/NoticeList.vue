@@ -18,7 +18,7 @@
         <el-select v-model="query.deptId" placeholder="部门" clearable style="width:140px" @change="loadList">
           <el-option v-for="d in deptOptions" :key="d.id" :label="d.name" :value="d.id" />
         </el-select>
-        <el-button v-if="canManage" type="primary" @click="$router.push('/notices/manage')">公告管理</el-button>
+        <el-button v-if="canManage" type="primary" @click="$router.push('/notices/manage')">{{ canCreate ? '公告管理' : '公告申请' }}</el-button>
       </div>
     </div>
 
@@ -28,8 +28,14 @@
         <template #default="{ row }">
           <span class="title-cell">
             <el-icon v-if="row.top" color="#e6a23c" :size="14"><Top /></el-icon>
-            <span :class="{ unread: !readSet.has(row.id) }">{{ row.title }}</span>
+            <span :class="{ unread: !row.isRead }">{{ row.title }}</span>
           </span>
+        </template>
+      </el-table-column>
+      <el-table-column prop="publisherName" label="发布人" width="140" align="center">
+        <template #default="{ row }">
+          <!-- 全员公告：姓名/部门；部门公告：仅姓名（部门已在类型里体现） -->
+          {{ row.publisherName ? (row.type === 'all' && row.publisherDeptName ? `${row.publisherName} / ${row.publisherDeptName}` : row.publisherName) : '—' }}
         </template>
       </el-table-column>
       <el-table-column label="类型" width="100" align="center">
@@ -72,12 +78,11 @@ import { useUserStore } from '@/stores/user'
 const router = useRouter()
 const store = useUserStore()
 const canCreate = computed(() => store.hasPermission('notice:create'))
-const canManage = computed(() => store.hasPermission('notice:create') || store.hasPermission('notice:publish:dept'))
+const canManage = computed(() => store.hasPermission('notice:create') || store.hasPermission('notice:publish:dept') || store.hasPermission('notice:submit:dept'))
 
 const loading = ref(false)
 const list = ref([])
 const total = ref(0)
-const readSet = ref(new Set())
 const query = reactive({ keyword: '', type: '', deptId: null, page: 1, size: 10 })
 const deptOptions = ref([])
 
@@ -89,8 +94,11 @@ onMounted(() => {
 async function loadDepts() {
   const res = await departmentApi.tree()
   if (res.success) {
-    // 只取一级部门作为筛选项
-    deptOptions.value = res.data.filter(d => d.status === 1).map(d => ({ id: d.id, name: d.name }))
+    // 保密隔离部门仅本部门成员出现在筛选项（非成员选了也看不到内容，直接不给选）
+    const myDeptId = store.userInfo?.departmentId
+    deptOptions.value = res.data
+      .filter(d => d.status === 1 && (d.confidential !== 1 || d.id === myDeptId))
+      .map(d => ({ id: d.id, name: d.name }))
   }
 }
 

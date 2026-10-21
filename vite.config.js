@@ -15,7 +15,7 @@ export default defineConfig({
   // 开发服务器配置
   server: {
     port: 5173,
-    host: "localhost",
+    host: "localhost", 
 
     // 代理配置（解决跨域）
     proxy: {

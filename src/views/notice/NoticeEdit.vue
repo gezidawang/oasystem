@@ -9,7 +9,8 @@
         </el-form-item>
         <el-form-item label="类型" prop="type">
           <el-radio-group v-model="form.type">
-            <el-radio value="all">全员公告</el-radio>
+            <!-- 普通员工（无 notice:create）不能发也不能申请全员公告 -->
+            <el-radio v-if="canChooseCompany" value="all">全员公告</el-radio>
             <el-radio value="department">部门公告</el-radio>
           </el-radio-group>
         </el-form-item>
@@ -54,7 +55,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { noticeApi } from '@/api/notices'
@@ -71,12 +72,16 @@ const dirty = ref(false)
 const editLocked = ref(false)
 
 // 发布权限 + 置顶权限
+const store = useUserStore()
 const perm = reactive({ canDirectCompany: false, canDirectDept: false, canPinCompany: false, canPinDept: false })
+// 能否选择/申请全员公告：有 notice:create 的（领导/行政/人事/老板）才可以；普通员工只能部门公告
+const canChooseCompany = computed(() => store.hasPermission('notice:create'))
 const deptOptions = ref([])
 const myDeptName = ref('')
-const store = useUserStore()
 
-const form = reactive({ title: '', content: '', type: 'all', top: 0, departmentId: null, status: 'draft' })
+const form = reactive({ title: '', content: '', type: store.hasPermission('notice:create') ? 'all' : 'department', departmentId: null, status: 'draft' })
+// 本地暂存 key：按用户 + 新建/编辑目标隔离，刷新/崩页后可恢复
+const draftKey = `notice_edit_${store.userId || 'anon'}_${route.params.id || 'new'}`
 const rules = {
   title: [{ required: true, message: '请输入标题', trigger: 'blur' }],
   content: [{ required: true, message: '请输入正文', trigger: 'blur' }],
@@ -101,10 +106,13 @@ onMounted(async () => {
   try {
     const p = await noticeApi.publishPermission()
     if (p.success) Object.assign(perm, p.data)
-    // 加载部门列表（行政/老板发部门公告时选择用）
+    // 加载部门列表（行政/老板发部门公告时选择用）；保密隔离部门仅本部门成员可选（后端同步拦截）
     const d = await departmentApi.tree()
     if (d.success) {
-      deptOptions.value = d.data.filter(x => x.status === 1).map(x => ({ id: x.id, name: x.name }))
+      const myDeptId = store.userInfo?.departmentId
+      deptOptions.value = d.data
+        .filter(x => x.status === 1 && (x.confidential !== 1 || x.id === myDeptId))
+        .map(x => ({ id: x.id, name: x.name }))
     }
     // 获取当前用户部门名（非管理员展示用）
     myDeptName.value = store.departmentName || ''
@@ -123,13 +131,51 @@ onMounted(async () => {
   } finally {
     pageLoading.value = false
   }
-  watchFormDirty()
+  // 恢复本地暂存（仅新建场景；编辑已有公告以服务端为准，避免旧暂存覆盖新加载内容）
+  restoreLocalDraft()
+  // 拦截刷新/关闭标签页
+  window.addEventListener('beforeunload', beforeUnloadHandler)
 })
 
-function watchFormDirty() {
-  const unwatch = setInterval(() => {}, 9999) // placeholder
-  // 用 input 事件标记
-  document.querySelector('.notice-edit')?.addEventListener('input', () => { dirty.value = true })
+onBeforeUnmount(() => {
+  window.removeEventListener('beforeunload', beforeUnloadHandler)
+  clearTimeout(saveTimer)
+})
+
+/** 浏览器刷新/关闭拦截：有未提交内容时弹原生确认 */
+function beforeUnloadHandler(e) {
+  if (dirty.value && !editLocked.value) {
+    e.preventDefault()
+    e.returnValue = ''
+  }
+}
+
+/** 表单变化 → 标脏 + 防抖 1s 自动存 localStorage */
+let saveTimer = null
+watch(form, () => {
+  if (editLocked.value) return
+  dirty.value = true
+  clearTimeout(saveTimer)
+  saveTimer = setTimeout(() => {
+    try { localStorage.setItem(draftKey, JSON.stringify(form)) } catch (e) { /* 存满则忽略 */ }
+  }, 1000)
+}, { deep: true })
+
+/** 进入页面时若有本地暂存 → 询问是否恢复 */
+async function restoreLocalDraft() {
+  if (route.params.id) return
+  const cached = localStorage.getItem(draftKey)
+  if (!cached) return
+  try {
+    const data = JSON.parse(cached)
+    if (!data.title && !data.content) { localStorage.removeItem(draftKey); return }
+    await ElMessageBox.confirm('检测到上次未提交的公告内容，是否恢复？', '恢复草稿',
+      { confirmButtonText: '恢复', cancelButtonText: '丢弃', type: 'info', distinguishCancelAndClose: true })
+    Object.assign(form, data)
+    dirty.value = true
+  } catch (action) {
+    if (action === 'cancel') localStorage.removeItem(draftKey) // 点“丢弃”才删；关闭弹窗保留暂存
+  }
 }
 
 // 退出提示（路由守卫）
@@ -173,6 +219,7 @@ async function handleSubmit() {
     }
     if (res.success) {
       dirty.value = false
+      localStorage.removeItem(draftKey)
       ElMessage.success(res.message)
       router.push('/notices')
     } else {
@@ -195,6 +242,7 @@ async function doSaveDraft() {
     const res = await noticeApi.create(form, true)
     if (res.success) {
       dirty.value = false
+      localStorage.removeItem(draftKey)
       ElMessage.success('已保存草稿')
       router.push('/notices')
     }

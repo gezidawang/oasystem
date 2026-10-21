@@ -15,7 +15,12 @@
       v-loading="loading"
       class="dept-table"
     >
-      <el-table-column prop="name" label="部门名称" min-width="180" />
+      <el-table-column prop="name" label="部门名称" min-width="200">
+        <template #default="{ row }">
+          {{ row.name }}
+          <el-tag v-if="row.confidential === 1" size="small" type="danger" effect="plain" style="margin-left:6px">保密隔离</el-tag>
+        </template>
+      </el-table-column>
       <el-table-column prop="code" label="字母代码" width="90" align="center" />
       <el-table-column prop="managerName" label="主管" width="100" />
       <el-table-column label="状态" width="80" align="center">
@@ -78,6 +83,11 @@
             />
           </el-select>
         </el-form-item>
+        <!-- 保密隔离：治理开关，仅老板/行政管理层可改 -->
+        <el-form-item v-if="canSetConfidential" label="保密隔离">
+          <el-switch v-model="form.confidential" :active-value="1" :inactive-value="0" />
+          <span class="conf-tip">开启后：该部门内部公告仅本部门+老板可见可操作，行政不可见</span>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
@@ -88,9 +98,15 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { departmentApi } from '@/api/departments'
+import { useUserStore } from '@/stores/user'
+
+const store = useUserStore()
+// 保密隔离开关仅老板/行政管理层可见可改（后端同步拦截）
+const canSetConfidential = computed(() =>
+  store.roleCode === 'super_admin' || store.hasPermission('notice:manage:all'))
 
 const loading = ref(false)
 const treeData = ref([])
@@ -99,7 +115,7 @@ const dialogVisible = ref(false)
 const submitting = ref(false)
 const formRef = ref(null)
 
-const form = ref({ id: null, name: '', code: '', parentId: null, managerId: null })
+const form = ref({ id: null, name: '', code: '', parentId: null, managerId: null, confidential: 0 })
 const rules = {
   name: [{ required: true, message: '请输入部门名称', trigger: 'blur' }],
   code: [
@@ -133,9 +149,9 @@ function flatten(nodes, list = []) {
 
 function openDialog(row) {
   if (row) {
-    form.value = { id: row.id, name: row.name, code: row.code, parentId: row.parentId, managerId: row.managerId }
+    form.value = { id: row.id, name: row.name, code: row.code, parentId: row.parentId, managerId: row.managerId, confidential: row.confidential || 0 }
   } else {
-    form.value = { id: null, name: '', code: '', parentId: null, managerId: null }
+    form.value = { id: null, name: '', code: '', parentId: null, managerId: null, confidential: 0 }
   }
   dialogVisible.value = true
 }
@@ -145,7 +161,7 @@ async function handleSubmit() {
   if (!valid) return
   submitting.value = true
   try {
-    const payload = { name: form.value.name, code: form.value.code, parentId: form.value.parentId, managerId: form.value.managerId }
+    const payload = { name: form.value.name, code: form.value.code, parentId: form.value.parentId, managerId: form.value.managerId, confidential: form.value.confidential }
     const res = form.value.id
       ? await departmentApi.update(form.value.id, payload)
       : await departmentApi.create(payload)
@@ -203,4 +219,5 @@ async function handleDelete(row) {
 .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
 .page-title { margin: 0; font-size: 18px; color: #303133; }
 .dept-table { background: #fff; }
+.conf-tip { margin-left: 12px; font-size: 12px; color: #8896a7; }
 </style>

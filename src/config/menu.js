@@ -9,12 +9,6 @@ export const MENU_GROUPS = [
         permission: ['approval:submit'] },
       { path: '/approvals/audit', title: '审批中心', icon: 'Checked', menuKey: 'approval-audit',
         permission: ['approval:audit:hr', 'approval:audit:boss'] },
-      { path: '/notices', title: '公告通知', icon: 'Bell', menuKey: 'notice', permission: ['notice:read:own'] },
-      { path: '/notices/manage', title: '公告管理', icon: 'BellFilled', menuKey: 'notice-manage',
-        permission: ['notice:create'] },
-      { path: '/news', title: '新闻动态', icon: 'Document', menuKey: 'news', permission: ['news:read'] },
-      { path: '/news/manage', title: '新闻管理', icon: 'EditPen', menuKey: 'news-manage',
-        permission: ['news:manage'] },
     ],
   },
   {
@@ -33,6 +27,12 @@ export const MENU_GROUPS = [
   {
     group: '行政办公',
     items: [
+      { path: '/notices', title: '公告通知', icon: 'Bell', menuKey: 'notice', permission: ['notice:read:own'] },
+      { path: '/notices/manage', title: '公告管理', icon: 'BellFilled', menuKey: 'notice-manage',
+        permission: ['notice:create', 'notice:publish:dept', 'notice:submit:dept'] },
+      { path: '/news', title: '新闻动态', icon: 'Document', menuKey: 'news', permission: ['news:read'] },
+      { path: '/news/manage', title: '新闻管理', icon: 'EditPen', menuKey: 'news-manage',
+        permission: ['news:manage'] },
       { path: '/files', title: '文件资料', icon: 'FolderOpened', menuKey: 'file',
         permission: ['file:read:own', 'file:upload:own'] },
     ],
