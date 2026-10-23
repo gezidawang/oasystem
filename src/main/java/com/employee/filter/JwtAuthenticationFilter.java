@@ -2,12 +2,14 @@ package com.employee.filter;
 
 import com.employee.security.LoginUser;
 import com.employee.service.PermissionCacheService;
+import com.employee.service.UserService;
 import com.employee.utils.JwtUtil;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -27,10 +29,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
     private final PermissionCacheService permissionCacheService;
+    private final StringRedisTemplate redisTemplate;
 
-    public JwtAuthenticationFilter(JwtUtil jwtUtil, PermissionCacheService permissionCacheService) {
+    public JwtAuthenticationFilter(JwtUtil jwtUtil, PermissionCacheService permissionCacheService,
+                                   StringRedisTemplate redisTemplate) {
         this.jwtUtil = jwtUtil;
         this.permissionCacheService = permissionCacheService;
+        this.redisTemplate = redisTemplate;
     }
 
     @Override
@@ -43,6 +48,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             try {
                 Claims claims = jwtUtil.parse(token);
                 Integer userId = Integer.valueOf(claims.getSubject());
+                // 停用/离职黑名单实查（8-3 联动 9-5）：账号被停用后旧 token 立即失效（user:off:{id}，TTL=token 有效期）；
+                // 与登录锁定同口径：Redis 异常不阻断主流程（fail-open，token 自然到期兜底）
+                boolean off = false;
+                try {
+                    off = Boolean.TRUE.equals(redisTemplate.hasKey(UserService.OFF_KEY_PREFIX + userId));
+                } catch (Exception ignored) {
+                }
+                if (off) {
+                    SecurityContextHolder.clearContext();
+                    filterChain.doFilter(request, response);
+                    return;
+                }
                 String username = claims.get("username", String.class);
                 Integer roleId = claims.get("roleId", Integer.class);
                 String roleCode = claims.get("roleCode", String.class);
