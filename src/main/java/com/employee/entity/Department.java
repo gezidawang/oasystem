@@ -33,6 +33,9 @@ public class Department {
     /** 1=启用 0=停用 */
     private Integer status;
 
+    /** 保密隔离部门：1=其内部公告仅本部门+老板可见可操作，行政不可见 */
+    private Integer confidential;
+
     /** 停用时间（删除冷却期判断） */
     private LocalDateTime disabledAt;
 

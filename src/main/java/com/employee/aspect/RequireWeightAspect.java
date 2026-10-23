@@ -39,6 +39,7 @@ public class RequireWeightAspect {
         this.positionMapper = positionMapper;
     }
 
+    /** 仅匹配方法级标注（@within 与 @annotation 的 OR 绑定存在 null 缺陷，已回退） */
     @Before("@annotation(requireWeight)")
     public void checkWeight(JoinPoint joinPoint, RequireWeight requireWeight) {
         int required = requireWeight.value();

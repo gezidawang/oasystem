@@ -40,6 +40,9 @@ public class AuditLog {
 
     private String description;
 
+    /** success=成功 / fail=失败（含越权被拒尝试） */
+    private String result;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
 }

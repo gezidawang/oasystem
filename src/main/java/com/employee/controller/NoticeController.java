@@ -33,9 +33,10 @@ public class NoticeController {
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Integer deptId,
+            @RequestParam(required = false) Integer managed,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size) {
-        return Result.success(noticeService.list(type, status, keyword, deptId, page, Math.min(size, 100)));
+        return Result.success(noticeService.list(type, status, keyword, deptId, managed, page, Math.min(size, 100)));
     }
 
     /** 公告详情（自动标记已读） */
@@ -52,21 +53,11 @@ public class NoticeController {
         return Result.success(noticeService.unreadCount());
     }
 
-    /** 查询当前用户发布能力（前端按钮形态用） */
+    /** 查询当前用户发布/置顶能力（前端按钮形态用，后端按真实部门判定） */
     @GetMapping("/publish-permission")
     @PreAuthorize("isAuthenticated()")
     public Result<Map<String, Object>> publishPermission() {
-        Map<String, Object> perm = new LinkedHashMap<>();
-        perm.put("canDirectCompany", noticeService.canDirectPublish("all", null));
-        perm.put("canDirectDept", noticeService.canDirectPublish("department", null));
-        perm.put("canPinCompany", noticeService.canPin("all", null, null));
-        perm.put("canPinDept", noticeService.canPin("department", getCurrentDeptId(), getCurrentDeptId()));
-        return Result.success(perm);
-    }
-
-    private Integer getCurrentDeptId() {
-        // 简化：从权限列表判断（完整实现需查库）
-        return null; // 前端传自己部门 deptId 给 canPin 判定
+        return Result.success(noticeService.publishPermission());
     }
 
     /** 创建公告（自动判断直接发布 or 提交申请；draft=true 存草稿） */
@@ -92,18 +83,18 @@ public class NoticeController {
         return Result.success("公告更新成功", null);
     }
 
-    /** 审批通过 */
+    /** 审批通过（路由在 Service 判定：全员申请→行政；部门申请→本部门负责人/老板兜底） */
     @PutMapping("/{id}/approve")
-    @PreAuthorize("hasAuthority('notice:publish:company')")
+    @PreAuthorize("isAuthenticated()")
     @AuditLog(action = "UPDATE", resource = "notice", description = "审批通过公告")
     public Result<Void> approve(@PathVariable Integer id) {
         noticeService.approve(id);
         return Result.success("审批通过，公告已发布", null);
     }
 
-    /** 审批驳回 */
+    /** 审批驳回（路由同 approve） */
     @PutMapping("/{id}/reject")
-    @PreAuthorize("hasAuthority('notice:publish:company')")
+    @PreAuthorize("isAuthenticated()")
     @AuditLog(action = "UPDATE", resource = "notice", description = "驳回公告")
     public Result<Void> reject(@PathVariable Integer id, @RequestParam String reason) {
         noticeService.reject(id, reason);
@@ -116,12 +107,12 @@ public class NoticeController {
     @AuditLog(action = "UPDATE", resource = "notice", description = "撤回公告")
     public Result<Void> revoke(@PathVariable Integer id) {
         noticeService.revoke(id);
-        return Result.success("公告已撤回", null);
+        return Result.success("已撤回，公告退回发布人草稿箱", null);
     }
 
     /** 置顶/取消置顶（独立管理动作，需对应权限） */
     @PutMapping("/{id}/top")
-    @PreAuthorize("hasAuthority('notice:publish:company') or hasAuthority('notice:publish:dept')")
+    @PreAuthorize("hasAuthority('notice:manage:all') or hasAuthority('notice:publish:dept')")
     @AuditLog(action = "UPDATE", resource = "notice", description = "置顶操作")
     public Result<Void> setTop(@PathVariable Integer id, @RequestParam Integer top) {
         noticeService.setTop(id, top);

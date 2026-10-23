@@ -40,30 +40,10 @@ public class AttendanceController {
     }
 
     /**
-     * 上班打卡。
-     * 注：这里用 isAuthenticated() 而非直接绑权限码，是为了让 Service 里的
-     * assertPunchable() 给出精确提示（「超级管理员（老板）无需打卡」 vs 「当前角色无打卡权限」），
-     * 避免 @PreAuthorize 拦截后只能返回笼统的 403 无权限访问；角色/权限校验仍在 Service 内集中完成，
-     * 不破坏 RBAC 体系。
-     */
-    @PostMapping("/check-in")
-    @PreAuthorize("isAuthenticated()")
-    @AuditLog(action = "CREATE", resource = "attendance", description = "上班打卡")
-    public Result<Map<String, Object>> checkIn() {
-        return Result.success("打卡成功", attendanceService.checkIn());
-    }
-
-    /** 下班打卡（同上：角色/权限精确拦截在 Service 内） */
-    @PostMapping("/check-out")
-    @PreAuthorize("isAuthenticated()")
-    @AuditLog(action = "CREATE", resource = "attendance", description = "下班打卡")
-    public Result<Map<String, Object>> checkOut() {
-        return Result.success("打卡成功", attendanceService.checkOut());
-    }
-
-    /**
-     * 统一打卡（推荐前端使用）：未打上班卡时打上班，已上班未打下班时打下班；
+     * 统一打卡（唯一打卡入口）：未打上班卡时打上班，已上班未打下班时打下班；
      * 下班前 1 小时锁死上班入口，已打卡者不受影响。
+     * 注：用 isAuthenticated() 而非绑权限码，是为了让 Service 里的 assertPunchable()
+     * 给出精确提示（「老板无需打卡」vs「无打卡权限」）；RBAC 校验集中在 Service，不破坏权限体系。
      */
     @PostMapping("/punch")
     @PreAuthorize("isAuthenticated()")

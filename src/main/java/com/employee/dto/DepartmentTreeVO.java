@@ -14,5 +14,7 @@ public class DepartmentTreeVO {
     private Integer managerId;
     private String managerName;
     private Integer status;
+    /** 保密隔离标志（前端据此过滤可选部门/展示徒章） */
+    private Integer confidential;
     private List<DepartmentTreeVO> children;
 }

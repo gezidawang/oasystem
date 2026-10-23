@@ -13,7 +13,7 @@ import java.lang.annotation.Target;
  * level 含义：1=员工, 2=主管, 3=部门负责人/人事, 99=总经理。
  * 当前用户 level 实时查库（sys_users.position_id → sys_positions.level），不取 JWT。
  */
-@Target(ElementType.METHOD)
+@Target({ElementType.METHOD, ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface RequireWeight {
 

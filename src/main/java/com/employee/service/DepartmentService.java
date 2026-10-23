@@ -24,12 +24,14 @@ public class DepartmentService {
     private final DepartmentMapper departmentMapper;
     private final UserMapper userMapper;
     private final DeptTreeService deptTreeService;
+    private final NoticeService noticeService;
 
     public DepartmentService(DepartmentMapper departmentMapper, UserMapper userMapper,
-                             DeptTreeService deptTreeService) {
+                             DeptTreeService deptTreeService, NoticeService noticeService) {
         this.departmentMapper = departmentMapper;
         this.userMapper = userMapper;
         this.deptTreeService = deptTreeService;
+        this.noticeService = noticeService;
     }
 
     // ==================== 查询 ====================
@@ -74,6 +76,7 @@ public class DepartmentService {
         dept.setCode(dto.getCode());
         dept.setParentId(dto.getParentId());
         dept.setManagerId(dto.getManagerId());
+        dept.setConfidential(resolveConfidential(dto.getConfidential(), 0));
         dept.setStatus(1);
         departmentMapper.insert(dept);
         deptTreeService.evictAll();
@@ -92,12 +95,32 @@ public class DepartmentService {
         if (Objects.equals(dto.getParentId(), id)) {
             throw new BusinessException(400, "上级部门不能是自己");
         }
+        // 防环：上级部门不能是自己的子孙部门（否则部门树成环，subtree 范围解析会无限递归）
+        if (dto.getParentId() != null && deptTreeService.subtree(id).contains(dto.getParentId())) {
+            throw new BusinessException(400, "上级部门不能是自己的下级部门");
+        }
         existing.setName(dto.getName());
         existing.setCode(dto.getCode());
         existing.setParentId(dto.getParentId());
         existing.setManagerId(dto.getManagerId());
+        existing.setConfidential(resolveConfidential(dto.getConfidential(), existing.getConfidential()));
         departmentMapper.updateById(existing);
         deptTreeService.evictAll();
+    }
+
+    /**
+     * 保密隔离标志变更拦截：隔离是治理决策，仅老板或行政管理层（notice:manage:all + W3）可设置；
+     * 其他角色提交不同值直接 403，提交相同/缺省值保持原样。
+     */
+    private Integer resolveConfidential(Integer requested, Integer current) {
+        int cur = current == null ? 0 : current;
+        if (requested == null || requested.equals(cur)) {
+            return cur;
+        }
+        if (!noticeService.isSuperAdmin() && !noticeService.hasManageOverride()) {
+            throw new BusinessException(403, "保密隔离标志仅老板/行政管理层可设置");
+        }
+        return requested == 1 ? 1 : 0;
     }
 
     // ==================== 停用 ====================
@@ -202,6 +225,7 @@ public class DepartmentService {
         vo.setManagerId(d.getManagerId());
         vo.setManagerName(d.getManagerId() != null ? nameMap.get(d.getManagerId()) : null);
         vo.setStatus(d.getStatus());
+        vo.setConfidential(d.getConfidential());
         return vo;
     }
 }

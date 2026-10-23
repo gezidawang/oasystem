@@ -1,10 +1,8 @@
 package com.employee.annotation;
-
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
-
 /**
  * 审计日志注解：标注在 Service/Controller 方法上，方法成功返回后由
  * {@link com.employee.aspect.AuditLogAspect} 记录一条 sys_audit_logs。

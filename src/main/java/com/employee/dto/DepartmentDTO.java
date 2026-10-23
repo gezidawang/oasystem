@@ -21,4 +21,7 @@ public class DepartmentDTO {
 
     /** 部门主管 user_id */
     private Integer managerId;
+
+    /** 保密隔离：1=其内部公告仅本部门+老板可见可操作（仅老板/行政可设置） */
+    private Integer confidential;
 }

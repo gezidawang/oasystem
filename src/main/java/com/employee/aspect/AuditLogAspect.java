@@ -5,6 +5,7 @@ import com.employee.service.AuditLogService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.annotation.AfterReturning;
+import org.aspectj.lang.annotation.AfterThrowing;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
 import org.springframework.stereotype.Component;
@@ -16,9 +17,10 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 审计日志切面：方法成功返回后记录一条 sys_audit_logs。
+ * 审计日志切面：方法成功返回后记 success，方法抛异常后也记一条 fail（含越权被拒），
+ * 所有操作留档可追溯。
  * new_value 存"方法 + 入参摘要"的 JSON；password/phone 等敏感字段脱敏；
- * 跳过 Servlet/文件/绑定结果等不可序列化参数；整体异常吞掉，绝不影响业务。
+ * 跳过 Servlet/文件/绑定结果等不可序列化参数；审计自身异常吞掉，绝不影响业务。
  */
 @Aspect
 @Component
@@ -43,10 +45,34 @@ public class AuditLogAspect {
             entry.setResource(auditLog.resource());
             entry.setDescription(auditLog.description().isEmpty() ? ms.getName() : auditLog.description());
             entry.setNewValue(buildDetailJson(ms.getName(), joinPoint.getArgs()));
+            entry.setResult("success");
             auditLogService.record(entry);
         } catch (Exception ignored) {
             // 审计异常不影响业务
         }
+    }
+
+    /** 失败留档：带 @AuditLog 的方法抛异常（如越权 403、校验不通过）时也记一条 fail */
+    @AfterThrowing(pointcut = "@annotation(auditLog)", throwing = "ex")
+    public void afterThrowing(JoinPoint joinPoint, AuditLog auditLog, Exception ex) {
+        try {
+            MethodSignature ms = (MethodSignature) joinPoint.getSignature();
+            com.employee.entity.AuditLog entry = new com.employee.entity.AuditLog();
+            entry.setAction(auditLog.action());
+            entry.setResource(auditLog.resource());
+            entry.setDescription((auditLog.description().isEmpty() ? ms.getName() : auditLog.description())
+                    + " [失败: " + truncate(ex.getMessage()) + "]");
+            entry.setNewValue(buildDetailJson(ms.getName(), joinPoint.getArgs()));
+            entry.setResult("fail");
+            auditLogService.record(entry);
+        } catch (Exception ignored) {
+            // 审计异常不影响业务
+        }
+    }
+
+    private String truncate(String msg) {
+        if (msg == null) return "unknown";
+        return msg.length() > 200 ? msg.substring(0, 200) : msg;
     }
 
     private String buildDetailJson(String method, Object[] args) {
