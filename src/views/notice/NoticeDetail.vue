@@ -16,6 +16,13 @@
           {{ notice.type === 'all' ? '全员公告' : '部门公告' }}
         </el-tag>
       </div>
+      <!-- 驳回原因：仅驳回人本人与申请/发布人本人可见（后端已对其他查看者置空脱敏，
+           此处只在有值时展示；业务原因：驳回意见属敏感人事信息） -->
+      <el-alert
+        v-if="notice.status === 'rejected' && notice.rejectReason"
+        type="error" :closable="false" show-icon class="reject-reason">
+        <template #title>驳回原因：{{ notice.rejectReason }}</template>
+      </el-alert>
       <el-divider />
       <div class="notice-content" v-html="safeContent"></div>
     </el-card>
@@ -65,4 +72,6 @@ function formatTime(t) {
 .notice-meta { font-size: 13px; color: #8896a7; }
 .notice-content { line-height: 1.8; color: #374151; font-size: 15px; }
 .notice-content :deep(p) { margin: 8px 0; }
+/* 驳回原因提示条：与详情卡片同风格，仅在授权双方视角出现 */
+.reject-reason { margin-bottom: 12px; }
 </style>

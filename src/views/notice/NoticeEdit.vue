@@ -20,10 +20,10 @@
             <el-option v-for="d in deptOptions" :key="d.id" :label="d.name" :value="d.id" />
           </el-select>
         </el-form-item>
-        <el-form-item v-if="form.type === 'department' && !perm.canDirectCompany" label="发布部门">
-          <span class="dept-readonly">{{ myDeptName || '本部门（自动绑定）' }}</span>
+        <!-- <el-form-item v-if="form.type === 'department' && !perm.canDirectCompany" label="发布部门">
+          <span class="dept-readonly">{{ myDeptName || '本部门（自动绑定）' }}</span> 
         </el-form-item>
-        <!-- 置顶功能已移至「公告管理」页面操作 -->
+        <置顶功能已移至「公告管理」页面操作 --> 
         <el-form-item label="正文" prop="content">
           <el-input v-model="form.content" type="textarea" :rows="10" placeholder="请输入公告内容（支持 HTML）" />
         </el-form-item>

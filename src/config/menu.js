@@ -51,6 +51,10 @@ export const MENU_GROUPS = [
     items: [
       { path: '/system', title: '基础数据与系统', icon: 'Setting', menuKey: 'system',
         permission: ['role:manage', 'org:manage'] },
+      // 编制申请：提交权=dept:manage:request（部门负责人/主管，后端另有 W2 门槛）；
+      // 审批=老板(W4)、执行建制=人事(org:manage)，按钮按服务端能力位显示
+      { path: '/system/dept-requests', title: '编制申请', icon: 'SetUp', menuKey: 'system-dept-requests',
+        permission: ['dept:manage:request', 'org:manage'] },
     ],
   },
 ]

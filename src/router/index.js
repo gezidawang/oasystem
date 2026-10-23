@@ -10,7 +10,8 @@ const COMPONENT_MAP = {
   '/attendance/checkin': () => import('@/views/attendance/CheckIn.vue'),
   '/attendance': () => import('@/views/attendance/AttendanceList.vue'),
   '/attendance/schedule': () => import('@/views/attendance/ScheduleSettings.vue'),
-  '/system': () => import('@/views/system/DepartmentManage.vue'),
+  '/system': () => import('@/views/system/SystemHome.vue'),
+  '/system/dept-requests': () => import('@/views/system/DeptRequestManage.vue'),
   '/notices': () => import('@/views/notice/NoticeList.vue'),
   '/notices/manage': () => import('@/views/notice/NoticeManage.vue'),
 }
