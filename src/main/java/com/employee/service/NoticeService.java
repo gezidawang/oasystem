@@ -80,8 +80,8 @@ public class NoticeService {
         perm.put("canManageDeptScope", isDeptLeaderGrade());
         // 全员公告直发/审批能力（前端待审批 Tab 与按钮以本字段为准）
         perm.put("canApproveCompany", isCompanyApprover());
-        // 部门内审审批能力（W3 专属，2026-10-22 定案）：主管 W2 无拍板权，前端待审批 Tab 以此为入口依据
-        perm.put("canApproveDept", isDeptApprover());
+        // 部门内审审批能力（分级审批 2026-10-24：W3 链头 或 任一节点负责人（含 W2 组长））：前端待审批 Tab 以此为入口依据
+        perm.put("canApproveDept", isDeptApprover() || !headDeptIds().isEmpty());
         return perm;
     }
 
@@ -122,7 +122,7 @@ public class NoticeService {
 
     // ==================== 列表 ====================
 
-    public Map<String, Object> list(String type, String status, String keyword, Integer filterDeptId, Integer managed, int page, int size) {
+    public Map<String, Object> list(String type, String status, String keyword, Integer filterDeptId, Integer managed, Integer manage, int page, int size) {
         LoginUser user = currentUser();
         User dbUser = userMapper.selectById(user.getUserId());
         Integer userDeptId = dbUser != null ? dbUser.getDepartmentId() : null;
@@ -133,26 +133,40 @@ public class NoticeService {
         if ("draft".equals(status)) {
             qw.eq("status", "draft").eq("publisher_id", user.getUserId());
         } else if ("pending_approval".equals(status)) {
-            // 待审批队列按类型分流：全员申请→行政；部门申请→仅本部门负责人；老板兜底全看
+            // 待审批队列按直属汇报线分级（正规 DOA，2026-10-24）：组长审本组、部门负责人审全链、行政审全员、老板兜底；
+            // 自己提交的申请不进自己的审批队列（禁自审自批，组长自提单自动升部门头）
             qw.eq("status", "pending");
             if (isSuperAdmin()) {
                 // 老板：全部（含保密部门无负责人时的兜底审批）
             } else if (isCompanyApprover()) {
                 // 行政管理层（publish:company+W3，权限码+职级双闸门）：只审全员公告申请，不参与其他部门内部公告审核；
-                // 例外：自己兼任某部门负责人（publish:dept + 职级≥3）时，本链的内审申请也要进自己的队列
+                // 例外：自己兼任某部门负责人/组长时，管辖范围内的内审申请也要进自己的队列
+                java.util.Set<Integer> myManaged = new java.util.HashSet<>(headDeptIds());
                 if (isDeptApprover() && userDeptId != null) {
-                    final java.util.Set<Integer> myChain = deptTreeService.subtree(userDeptId);
-                    qw.and(w -> w.eq("type", "all").or().in("department_id", myChain));
-                } else {
+                    myManaged.addAll(deptTreeService.subtree(userDeptId));
+                }
+                if (myManaged.isEmpty()) {
                     qw.eq("type", "all");
-                }
-            } else if (isDeptApprover()) {
-                // 部门负责人(W3)：看本链（本部门+各组）的待审批（链内一体，组申请由部门负责人批，不堵老板）
-                if (userDeptId != null) {
-                    qw.in("department_id", deptTreeService.subtree(userDeptId));
                 } else {
-                    qw.eq("publisher_id", user.getUserId());
+                    final java.util.Set<Integer> m = myManaged;
+                    qw.and(w -> w.eq("type", "all").or().in("department_id", m));
                 }
+                qw.ne("publisher_id", user.getUserId());
+            } else if (isDeptApprover()) {
+                // 部门负责人(W3)：看本链（本部门+各组）的待审批（链内一体），另加自己兼任组长的其他节点；不含自己提的
+                java.util.Set<Integer> myChain2 = new java.util.HashSet<>(headDeptIds());
+                if (userDeptId != null) {
+                    myChain2.addAll(deptTreeService.subtree(userDeptId));
+                }
+                if (myChain2.isEmpty()) {
+                    qw.eq("publisher_id", user.getUserId());
+                } else {
+                    qw.in("department_id", myChain2);
+                }
+                qw.ne("publisher_id", user.getUserId());
+            } else if (isDeptLeaderGrade() && !headDeptIds().isEmpty()) {
+                // 组长/节点负责人（W2，manager_id=自己）：审自己负责节点内的申请（直属上级第一审批人）；不含自己提的
+                qw.in("department_id", headDeptIds()).ne("publisher_id", user.getUserId());
             } else {
                 // 普通员工：只看自己提交的
                 qw.eq("publisher_id", user.getUserId());
@@ -179,6 +193,18 @@ public class NoticeService {
                 java.util.Set<Integer> conf = confidentialDeptIds();
                 if (!conf.isEmpty()) {
                     qw.not(w -> w.eq("type", "department").in("department_id", conf));
+                }
+            } else if (manage != null && manage == 1) {
+                // 管理工作台口径（方案 A 定案 2026-10-23）：公告管理的"已发布"Tab 只显示与己治理相关——
+                //   ①自己发布/提交的（无论类型，含自己发的全员）②岗位管辖链内的部门公告（链内一体，保密剥离已含）；
+                // 他人发布的全员公告属阅读侧内容，去"公告中心"看，不再混入管理页造成"跨部门可见"的错觉；
+                // 后端谓词为准，不依赖前端隐藏；公告中心不带此参，读者口径零影响。
+                java.util.Set<Integer> visible = positionScopeService.currentVisibleDepts();
+                if (visible.isEmpty()) {
+                    qw.eq("publisher_id", user.getUserId());
+                } else {
+                    qw.and(w -> w.eq("publisher_id", user.getUserId())
+                            .or().eq("type", "department").in("department_id", visible));
                 }
             } else {
                 java.util.Set<Integer> visible = positionScopeService.currentVisibleDepts();
@@ -575,28 +601,60 @@ public class NoticeService {
     }
 
     /**
-     * 审批路由：全员公告申请→行政/老板(notice:publish:company，含各部门负责人/人事总监提交的全员申请)；
-     * 部门公告申请→仅本部门负责人(notice:publish:dept+同部门)，老板兜底（部门无负责人时）；
-     * 行政不参与其他部门内部公告审核，保密部门对行政彻底隔离。
+     * 审批路由（正规企业分级审批，2026-10-24 定案）：审批跟直属汇报线走——
+     *   组长（节点负责人，publish:dept 且 W2+，sys_departments.manager_id=自己）可拍板本节点申请；
+     *   部门负责人（W3）覆盖整条链（部本级申请+各组的升提兜底）；
+     *   全员申请→行政管理层；老板全局兜底；行政不参与他部门内审，保密部门对行政彻底隔离；
+     *   任何人不得审批自己提交的申请（组长自提本组单→自动升部门负责人，杜绝自审自批）。
+     * 与旧"审批收 W3"口径的关系：拍板层从"只设在部一级"修正为"节点负责人即第一审批人"，
+     * 仍不突破"权限码+职级双闸门"与"缺位靠上提不靠摊薄"两条铁律。
      */
     private void checkApprovePermission(Notice notice) {
+        LoginUser user = currentUser();
         if ("all".equals(notice.getType())) {
-            // 全员申请仅行政管理层可审（权限码+职级双闸门，防止 W1 专员越权审批）
+            // 全员申请仅行政管理层可审（权限码+职级双闸门，防止 W1 专员越权审批）；自提自批一律拦截
             if (!isCompanyApprover()) {
                 throw new BusinessException(403, "全员公告由行政审批（部门领导/人事总监仅可申请）");
             }
+            if (notice.getPublisherId().equals(user.getUserId())) {
+                throw new BusinessException(403, "不能审批自己提交的申请（职责分离）");
+            }
             return;
         }
-        // 部门公告：本链负责人（W3，含各组——链内一体：组员也是部门成员）或老板兜底审，行政不参与他部门内审
-        LoginUser user = currentUser();
+        if (notice.getPublisherId().equals(user.getUserId())) {
+            throw new BusinessException(403, "不能审批自己提交的申请，由上级负责人拍板（禁自审自批）");
+        }
         User dbUser = userMapper.selectById(user.getUserId());
         Integer userDeptId = dbUser != null ? dbUser.getDepartmentId() : null;
-        boolean deptHead = isDeptApprover()
+        // ① 节点负责人（组长 W2+ 即可）：本节点申请由直属上级第一审批
+        boolean nodeHead = isNodeHeadOf(notice.getDepartmentId());
+        // ② 链头（W3）：本部门及下属各组全覆盖（部本级申请、组升提兜底）
+        boolean chainHead = isDeptApprover()
                 && userDeptId != null
                 && deptTreeService.subtree(userDeptId).contains(notice.getDepartmentId());
-        if (!deptHead && !isSuperAdmin()) {
-            throw new BusinessException(403, "部门公告仅由本部门负责人审批");
+        if (!nodeHead && !chainHead && !isSuperAdmin()) {
+            throw new BusinessException(403, "部门公告由本节点负责人或上级部门负责人审批（非负责人仅可初审转呈）");
         }
+    }
+
+    /** 节点负责人判定（组长档，W2+）：持 publish:dept 码且该部门 manager_id=自己——正规 DOA 里直属上级就是第一审批人 */
+    private boolean isNodeHeadOf(Integer deptId) {
+        if (deptId == null || !hasAuthority("notice:publish:dept") || currentLevel() < 2) {
+            return false;
+        }
+        Department dept = departmentMapper.selectById(deptId);
+        return dept != null && dept.getManagerId() != null
+                && dept.getManagerId().equals(currentUser().getUserId());
+    }
+
+    /** 自己作为负责人（manager_id）的全部部门节点 id（组长本组/部长本部）：驱动审批队列与 canApproveDept 能力位 */
+    private java.util.Set<Integer> headDeptIds() {
+        if (!hasAuthority("notice:publish:dept") || currentLevel() < 2) {
+            return java.util.Collections.emptySet();
+        }
+        LoginUser user = currentUser();
+        return departmentMapper.selectList(new QueryWrapper<Department>().eq("manager_id", user.getUserId()))
+                .stream().map(Department::getId).collect(java.util.stream.Collectors.toSet());
     }
 
     // ==================== 撤回（退回发布人草稿） ====================

@@ -27,6 +27,8 @@ public class CorsConfig {
                 "http://192.168.*:5173"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
+        // 滑动续期：允许浏览器 JS 读取续期响应头（缺失时前端 axios 拿不到 X-Renew-Token）
+        config.setExposedHeaders(List.of("X-Renew-Token"));
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);
 

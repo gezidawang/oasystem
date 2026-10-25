@@ -34,9 +34,10 @@ public class NoticeController {
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Integer deptId,
             @RequestParam(required = false) Integer managed,
+            @RequestParam(required = false) Integer manage,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size) {
-        return Result.success(noticeService.list(type, status, keyword, deptId, managed, page, Math.min(size, 100)));
+        return Result.success(noticeService.list(type, status, keyword, deptId, managed, manage, page, Math.min(size, 100)));
     }
 
     /** 公告详情（自动标记已读） */

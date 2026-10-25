@@ -73,6 +73,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         authorities,
                         true);
 
+                // 滑动续期（热加载，2026-10-24）：活跃用户 token 剩余不足有效期 1/3 时重发新 token 随响应头下发，
+                // 前端拦截器静默替换——正常使用永不踢线；闲置超过有效期不活跃才自然过期（安全窗口不变）。
+                // 续期只在临期窗口触发，不会每个请求都重签（约每 10 分钟一次）
+                long remainMs = claims.getExpiration().getTime() - System.currentTimeMillis();
+                if (remainMs > 0 && remainMs < jwtUtil.getAccessTokenExpiration() / 3) {
+                    response.setHeader("X-Renew-Token",
+                            jwtUtil.generateToken(userId, username, roleId, roleCode));
+                }
+
                 UsernamePasswordAuthenticationToken auth =
                         new UsernamePasswordAuthenticationToken(loginUser, null, loginUser.getAuthorities());
                 SecurityContextHolder.getContext().setAuthentication(auth);

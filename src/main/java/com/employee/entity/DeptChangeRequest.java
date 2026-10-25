@@ -51,6 +51,10 @@ public class DeptChangeRequest {
     /** 驳回原因（仅申请人/审批人可见，其余人查询时脱敏置空） */
     private String rejectReason;
 
+    /** 执行失败原因（DOA 三段式兼容口径：人事执行撞硬约束时单据回退 failed 态并留痕，
+     *  老板可整改后重新审批或驳回终止，杜绝"永远关不掉的死单"；属系统校验信息不涉人敏感评价，不脱敏） */
+    private String failReason;
+
     /** 执行建制后产生的部门 id（type=create） */
     private Integer resultDeptId;
 
