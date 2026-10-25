@@ -20,12 +20,21 @@ request.interceptors.request.use(
   (error) => Promise.reject(error)
 )
 
-// 响应拦截：统一解包 Result，处理 401
+// 响应拦截：统一解包 Result，处理 401 与滑动续期
 request.interceptors.response.use(
-  (response) => response.data,
+  (response) => {
+    // 滑动续期（热加载）：后端对活跃用户在新 token 剩余不足 1/3 有效期时随响应下发 X-Renew-Token，
+    // 前端静默替换本地 token——正常使用永不踢线，闲置超过 token 有效期才登出
+    const renew = response.headers?.['x-renew-token']
+    if (renew) {
+      localStorage.setItem('token', renew)
+    }
+    return response.data
+  },
   (error) => {
     const status = error.response?.status
     if (status === 401) {
+      // 真过期（闲置超时/被停用）才提示重登；活跃用户已被上面的续期机制接住
       ElMessage.error('登录已过期，请重新登录')
       localStorage.removeItem('token')
       if (window.location.pathname !== '/login') {

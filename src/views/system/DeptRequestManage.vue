@@ -5,7 +5,7 @@
       <el-button v-if="canSubmit" type="primary" @click="openDialog()">提交申请</el-button>
     </div>
     <el-alert type="info" :closable="false" show-icon class="rule-alert">
-      编制变更三段式治理：部门负责人/主管提交申请 → 总经理审批 → 人事执行建制。审批通过前不改动组织架构。
+      编制变更三权分立：部门提案 → 总经理拍板 → 人事经手建制，同一人不得在同一单上连续经手两段；审批通过前不改动组织架构。
     </el-alert>
 
     <el-table :data="list" v-loading="loading" border>
@@ -26,6 +26,8 @@
         <template #default="{ row }">
           <el-tag size="small" :type="statusColor(row.status)">{{ statusLabel(row.status) }}</el-tag>
           <div v-if="row.status === 'rejected' && row.rejectReason" class="reject-tip">原因：{{ row.rejectReason }}</div>
+          <!-- 执行失败留痕（系统校验信息不脱敏）：老板整改后重新审批或驳回终止，杜绝死单 -->
+          <div v-if="row.status === 'failed' && row.failReason" class="reject-tip">失败：{{ row.failReason }}</div>
         </template>
       </el-table-column>
       <el-table-column prop="approverName" label="审批人" width="100" align="center">
@@ -34,10 +36,13 @@
       <el-table-column label="操作" width="190" align="center" class-name="action-col">
         <template #default="{ row }">
           <div class="action-btns">
-            <el-button v-if="canApprove && row.status === 'pending'" link type="success" size="small" @click="handleApprove(row)">通过</el-button>
-            <el-button v-if="canApprove && row.status === 'pending'" link type="danger" size="small" @click="handleReject(row)">驳回</el-button>
+            <!-- 审批段：pending 首次审批，failed 整改后重新拍板；驳回可终止 pending/approved(撤回)/failed 三种在途态 -->
+            <el-button v-if="canApprove && (row.status === 'pending' || row.status === 'failed')" link type="success" size="small" @click="handleApprove(row)">通过</el-button>
+            <el-button v-if="canApprove && ['pending', 'approved', 'failed'].includes(row.status)" link type="danger" size="small" @click="handleReject(row)">驳回</el-button>
             <el-button v-if="canExecute && row.status === 'approved'" link type="primary" size="small" @click="handleExecute(row)">执行建制</el-button>
-            <span v-if="!((canApprove && row.status === 'pending') || (canExecute && row.status === 'approved'))" class="no-action">—</span>
+            <!-- 撤回：提案人收回自己的在途提案（非审批动作，不受 SoD 限制）；老板自提单的唯一合法出口 -->
+            <el-button v-if="row.applicantId === store.userId && ['pending', 'approved'].includes(row.status)" link type="warning" size="small" @click="handleWithdraw(row)">撤回</el-button>
+            <span v-if="!((canApprove && ['pending', 'approved', 'failed'].includes(row.status)) || (canExecute && row.status === 'approved') || (row.applicantId === store.userId && ['pending', 'approved'].includes(row.status)))" class="no-action">—</span>
           </div>
         </template>
       </el-table-column>
@@ -194,10 +199,18 @@ async function handleExecute(row) {
   else ElMessage.error(res.message)
 }
 
+// 撤回：提案人收回自己的在途提案（非审批动作，服务端只认申请人本人）
+async function handleWithdraw(row) {
+  await ElMessageBox.confirm(`确认撤回提案「${row.deptName || row.name}」？撤回后如需变更请重新提交。`, '撤回提案', { type: 'warning' })
+  const res = await deptRequestApi.withdraw(row.id)
+  if (res.success) { ElMessage.success(res.message); loadList() }
+  else ElMessage.error(res.message)
+}
+
 function typeLabel(t) { return { create: '增设', disable: '撤编', update: '调整' }[t] || t }
 function typeTag(t) { return { create: 'success', disable: 'danger', update: 'warning' }[t] || 'info' }
-function statusLabel(s) { return { pending: '待审批', approved: '待执行', rejected: '未通过', done: '已完成' }[s] || s }
-function statusColor(s) { return { pending: 'warning', approved: 'primary', rejected: 'danger', done: 'success' }[s] || 'info' }
+function statusLabel(s) { return { pending: '待审批', approved: '待执行', rejected: '未通过', done: '已完成', failed: '执行失败' }[s] || s }
+function statusColor(s) { return { pending: 'warning', approved: 'primary', rejected: 'danger', done: 'success', failed: 'danger' }[s] || 'info' }
 </script>
 
 <style scoped>

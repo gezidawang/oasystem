@@ -51,10 +51,11 @@ export const MENU_GROUPS = [
     items: [
       { path: '/system', title: '基础数据与系统', icon: 'Setting', menuKey: 'system',
         permission: ['role:manage', 'org:manage'] },
-      // 编制申请：提交权=dept:manage:request（部门负责人/主管，后端另有 W2 门槛）；
-      // 审批=老板(W4)、执行建制=人事(org:manage)，按钮按服务端能力位显示
+      // 编制申请（三权分立 2026-10-24）：提案方持 dept:manage:request、拍板方持 dept:manage:approve、
+      // 经手方持 org:manage——三个职责主体都需要进页，菜单按"任一码"放行；
+      // 按钮显隐看服务端能力位 canApprove/canExecute，真正的门槛在接口码+职级双闸门（后端唯一权威）
       { path: '/system/dept-requests', title: '编制申请', icon: 'SetUp', menuKey: 'system-dept-requests',
-        permission: ['dept:manage:request', 'org:manage'] },
+        permission: ['dept:manage:request', 'dept:manage:approve', 'org:manage'] },
     ],
   },
 ]

@@ -3,7 +3,8 @@
     <!-- 工具栏 -->
     <div class="toolbar">
       <h3 class="page-title">部门管理</h3>
-      <el-button type="primary" @click="openDialog()">新增部门</el-button>
+      <!-- 体验层收敛（2026-10-24 DOA）：写操作归 org:manage 持有者（人事）；老板已剥码只剩查看，服务端双闸门为唯一权威 -->
+      <el-button v-if="canOperate" type="primary" @click="openDialog()">新增部门</el-button>
     </div>
 
     <!-- 树形表格 -->
@@ -30,7 +31,7 @@
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="180" align="center">
+      <el-table-column v-if="canOperate" label="操作" width="180" align="center">
         <template #default="{ row }">
           <el-button link type="primary" size="small" @click="openDialog(row)">编辑</el-button>
           <el-button
@@ -104,6 +105,9 @@ import { departmentApi } from '@/api/departments'
 import { useUserStore } from '@/stores/user'
 
 const store = useUserStore()
+// 建制写操作（新增/编辑/启停/删除）：归 org:manage 码持有者（人事总监 W3）；
+// 2026-10-24 DOA 收敛后老板不再持码，此开关仅体验层，服务端码+职级双闸门为唯一权威
+const canOperate = computed(() => store.hasPermission('org:manage'))
 // 保密隔离开关仅老板/行政管理层可见可改（后端同步拦截）
 const canSetConfidential = computed(() =>
   store.roleCode === 'super_admin' || store.hasPermission('notice:manage:all'))

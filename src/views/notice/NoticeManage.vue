@@ -11,7 +11,9 @@
            阅读仍按岗位范围收窄，既消除信息干扰又不削弱删/撤/置顶三层口径（数据源 status=published&managed=1） -->
       <el-tab-pane v-if="canManageAll" label="治理" name="governance" />
       <el-tab-pane label="我的草稿" name="draft" />
-      <el-tab-pane label="我提交的申请" name="pending" />
+      <!-- 高权限角色隐藏"我提交的申请"Tab（定案）：能直发全员公告者（publish:company+W3）部门/全员均直发，
+           永远不会产生待审批申请，展示空 Tab 徒增困惑；能力以服务端 canDirectCompany 为准 -->
+      <el-tab-pane v-if="!canDirectCompany" label="我提交的申请" name="pending" />
       <!-- 待审批 Tab：行政管理层（审全员申请）+ 部门领导层（审本部门申请）分工协作，
            避免部门内审堆积到行政/老板兜底；能力以服务端 publishPermission() 下发为准 -->
       <el-tab-pane v-if="canReview" label="待审批" name="pending_approval" />
@@ -102,6 +104,8 @@ function canPinRow(row) {
 
 // 部门负责人管理域（服务端权威下发：publish:dept + 实时职级≥2，防角色码泄漏给部门内普通成员）
 const canDeptScope = ref(false)
+// 全员公告直发能力（服务端 canDirectCompany=publish:company+W3 双闸门结果）：true 时隐藏"我提交的申请"Tab
+const canDirectCompany = ref(false)
 const myDeptId = computed(() => store.userInfo?.departmentId ?? null)
 const mySubtreeIds = ref(new Set())
 const confDeptIds = ref(new Set())
@@ -122,6 +126,8 @@ async function loadDeptScope() {
     canDeptScope.value = !!perm.data.canManageDeptScope
     canApprove.value = !!perm.data.canApproveCompany
     canApproveDept.value = !!perm.data.canApproveDept
+    // 全员直发能力（服务端双闸门结果）：决定"我提交的申请"Tab 是否有意义
+    canDirectCompany.value = !!perm.data.canDirectCompany
   }
   // 保密集对行政行级判定也需要（保密部门公告行政不可置顶），故行政管理层同样加载
   if (!canDeptScope.value && !canManageAll.value) return
@@ -158,6 +164,8 @@ async function loadList() {
     // 治理 Tab=跨部门治理入口（status=published&managed=1，治理权由后端判定，无权者回落普通范围）
     const params = { status: activeTab.value === 'governance' ? 'published' : activeTab.value, page: page.value, size: 10 }
     if (activeTab.value === 'governance') params.managed = 1
+    // 已发布 Tab=管理工作台口径（方案 A）：只看自己发布的+管辖链内部门公告；他人全员公告去公告中心看（后端谓词为准）
+    if (activeTab.value === 'published') params.manage = 1
     const res = await noticeApi.list(params)
     if (res.success) {
       list.value = res.data.records
